@@ -2,6 +2,26 @@ import { useState, useEffect, useRef } from 'react'
 import { usePortfolioData } from './usePortfolioData'
 import EditPanel from './EditPanel'
 
+// Vite asset resolver: local images inside src/assets must be imported/processed
+// during build. This also handles old saved paths such as /src/assets/profile.jpg.
+const localAssets = import.meta.glob('./assets/*', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+}) as Record<string, string>
+
+function resolveAssetUrl(value: string | undefined | null): string {
+  if (!value) return ''
+  if (value.startsWith('data:') || value.startsWith('http://') || value.startsWith('https://') || value.startsWith('blob:')) {
+    return value
+  }
+
+  const normalized = value.replace(/\\/g, '/').split('?')[0].split('#')[0]
+  const filename = normalized.split('/').pop() || ''
+  const key = `./assets/${filename}`
+  return localAssets[key] ?? value
+}
+
 const NAV_ITEMS = ['Home', 'About', 'Work', 'Skills', 'Experience', 'Contact']
 
 function useScrollSpy() {
@@ -187,7 +207,7 @@ export default function App() {
                 boxShadow: '0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,230,208,0.12)',
               }}>
                 <img
-                  src={data.profileImage}
+                  src={resolveAssetUrl(data.profileImage)}
                   alt={`${data.name} profile`}
                   className="w-full block portrait-treatment"
                   style={{ height: 520, objectFit: 'cover', objectPosition: 'center top' }}
@@ -353,7 +373,7 @@ export default function App() {
               <div className="grid md:grid-cols-2">
                 <div className="relative overflow-hidden" style={{ minHeight: 320 }}>
                   <img
-                    src={featuredProject.img}
+                    src={resolveAssetUrl(featuredProject.img)}
                     alt={featuredProject.title}
                     className="w-full h-full object-cover"
                     style={{ minHeight: 320 }}
@@ -389,7 +409,7 @@ export default function App() {
               {secondaryProjects.map(p => (
                 <div key={p.id} className="project-card glass-card rounded-2xl overflow-hidden">
                   <div className="relative overflow-hidden" style={{ height: 200 }}>
-                    <img src={p.img} alt={p.title} className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
+                    <img src={resolveAssetUrl(p.img)} alt={p.title} className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
                     <div style={{ position: 'absolute', inset: 0, background: 'rgba(2,6,6,0.3)' }} />
                     <span
                       className="absolute top-4 left-4 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full"

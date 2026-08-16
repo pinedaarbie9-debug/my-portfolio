@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { type PortfolioData, type Project, type ExperienceItem } from './types'
-import { fileToDataUrl } from './usePortfolioData'
+import { uploadImage } from './usePortfolioData'
 
 const CATEGORIES = ['FULL-STACK', 'WEB', 'BUSINESS SYSTEM', 'UI/UX', 'ACADEMIC', 'FREELANCE', 'OTHER']
 
@@ -18,21 +18,44 @@ export default function EditPanel({ data, onUpdate, onReset, onClose }: Props) {
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [editingExp, setEditingExp] = useState<ExperienceItem | null>(null)
   const [editingExpIdx, setEditingExpIdx] = useState<number>(-1)
+  const [uploadingProfile, setUploadingProfile] = useState(false)
+  const [uploadingProjectId, setUploadingProjectId] = useState<number | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const profileImgRef = useRef<HTMLInputElement>(null)
 
   const handleProfileImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const url = await fileToDataUrl(file)
-    onUpdate('profileImage', url)
+    setUploadError(null)
+    setUploadingProfile(true)
+    try {
+      const url = await uploadImage(file)
+      onUpdate('profileImage', url)
+    } catch (err) {
+      console.error(err)
+      setUploadError('Profile photo upload failed. Check your Supabase setup and try again.')
+    } finally {
+      setUploadingProfile(false)
+      e.target.value = '' // allow re-selecting the same file
+    }
   }
 
   const handleProjectImage = async (e: React.ChangeEvent<HTMLInputElement>, projectId: number) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const url = await fileToDataUrl(file)
-    const updated = data.projects.map(p => p.id === projectId ? { ...p, img: url } : p)
-    onUpdate('projects', updated)
+    setUploadError(null)
+    setUploadingProjectId(projectId)
+    try {
+      const url = await uploadImage(file)
+      const updated = data.projects.map(p => p.id === projectId ? { ...p, img: url } : p)
+      onUpdate('projects', updated)
+    } catch (err) {
+      console.error(err)
+      setUploadError('Project image upload failed. Check your Supabase setup and try again.')
+    } finally {
+      setUploadingProjectId(null)
+      e.target.value = ''
+    }
   }
 
   const handleProjectField = (id: number, field: keyof Project, value: string | string[] | boolean) => {
@@ -133,7 +156,7 @@ export default function EditPanel({ data, onUpdate, onReset, onClose }: Props) {
         }}>
           <div>
             <p style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 18, color: '#F5FFFF', letterSpacing: '-0.01em' }}>Edit Portfolio</p>
-            <p style={{ fontSize: 11, color: '#9BAFAF', marginTop: 2 }}>Changes save automatically to your browser</p>
+            <p style={{ fontSize: 11, color: '#9BAFAF', marginTop: 2 }}>Changes publish live for everyone who visits your site</p>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <button
@@ -182,6 +205,16 @@ export default function EditPanel({ data, onUpdate, onReset, onClose }: Props) {
         {/* Content */}
         <div style={{ overflowY: 'auto', flex: 1, padding: '24px' }}>
 
+          {uploadError && (
+            <div style={{
+              marginBottom: 16, padding: '10px 14px', borderRadius: 10,
+              background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.25)',
+              color: '#ff8a8a', fontSize: 12,
+            }}>
+              {uploadError}
+            </div>
+          )}
+
           {/* ── PROFILE TAB ── */}
           {tab === 'profile' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -202,23 +235,24 @@ export default function EditPanel({ data, onUpdate, onReset, onClose }: Props) {
                     />
                     <div style={{
                       position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: 'rgba(2,6,6,0.5)', opacity: 0, transition: 'opacity 0.2s',
+                      background: 'rgba(2,6,6,0.5)', opacity: uploadingProfile ? 1 : 0, transition: 'opacity 0.2s',
                     }}
                       onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-                      onMouseLeave={e => (e.currentTarget.style.opacity = '0')}
-                      onClick={() => profileImgRef.current?.click()}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = uploadingProfile ? '1' : '0')}
+                      onClick={() => !uploadingProfile && profileImgRef.current?.click()}
                       className="cursor-pointer"
                     >
-                      <span style={{ color: '#00E6D0', fontSize: 22 }}>↑</span>
+                      <span style={{ color: '#00E6D0', fontSize: 22 }}>{uploadingProfile ? '…' : '↑'}</span>
                     </div>
                   </div>
-                  <input ref={profileImgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleProfileImage} />
+                  <input ref={profileImgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleProfileImage} disabled={uploadingProfile} />
                   <button
                     onClick={() => profileImgRef.current?.click()}
                     className="btn-primary"
-                    style={{ marginTop: 8, width: 100, padding: '7px 0', borderRadius: 8, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer', border: 'none', fontFamily: "'Outfit', sans-serif", fontWeight: 700 }}
+                    disabled={uploadingProfile}
+                    style={{ marginTop: 8, width: 100, padding: '7px 0', borderRadius: 8, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', cursor: uploadingProfile ? 'wait' : 'pointer', border: 'none', fontFamily: "'Outfit', sans-serif", fontWeight: 700, opacity: uploadingProfile ? 0.6 : 1 }}
                   >
-                    Upload Photo
+                    {uploadingProfile ? 'Uploading…' : 'Upload Photo'}
                   </button>
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -308,6 +342,7 @@ export default function EditPanel({ data, onUpdate, onReset, onClose }: Props) {
               {editingProject && (() => {
                 const proj = data.projects.find(p => p.id === editingProject.id)
                 if (!proj) return null
+                const isUploading = uploadingProjectId === proj.id
                 return (
                   <div style={{ background: 'rgba(6,37,37,0.6)', border: '1px solid rgba(0,230,208,0.2)', borderRadius: 14, padding: '20px', marginTop: 4 }}>
                     <SectionTitle>Editing: {proj.title}</SectionTitle>
@@ -324,13 +359,13 @@ export default function EditPanel({ data, onUpdate, onReset, onClose }: Props) {
                         <label style={{
                           display: 'flex', alignItems: 'center', gap: 6,
                           background: 'rgba(0,230,208,0.08)', border: '1px dashed rgba(0,230,208,0.35)',
-                          borderRadius: 10, padding: '10px 18px', cursor: 'pointer',
+                          borderRadius: 10, padding: '10px 18px', cursor: isUploading ? 'wait' : 'pointer',
                           color: '#00E6D0', fontSize: 12, fontFamily: "'Outfit', sans-serif", fontWeight: 600,
                           textTransform: 'uppercase', letterSpacing: '0.08em',
-                          transition: 'all 0.2s',
+                          transition: 'all 0.2s', opacity: isUploading ? 0.6 : 1,
                         }}>
-                          <span style={{ fontSize: 16 }}>↑</span> Upload Image
-                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleProjectImage(e, proj.id)} />
+                          <span style={{ fontSize: 16 }}>↑</span> {isUploading ? 'Uploading…' : 'Upload Image'}
+                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleProjectImage(e, proj.id)} disabled={isUploading} />
                         </label>
                       </div>
                     </div>

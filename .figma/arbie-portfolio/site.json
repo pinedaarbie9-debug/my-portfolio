@@ -1,0 +1,10 @@
+{
+  "description": "A premium developer portfolio showcasing skills, projects, and experience to attract internships, entry-level jobs, and freelance web development opportunities.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
